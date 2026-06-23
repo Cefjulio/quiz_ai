@@ -1,27 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --duo-green: #58CC02;
+  --duo-green-dark: #46A302;
+  --duo-yellow: #FFC800;
+  --duo-red: #FF4B4B;
+  --duo-blue: #1CB0F6;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  font-family: 'Nunito', sans-serif;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #f7f7f7;
+  color: #1f1f1f;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+.duo-btn {
+  @apply font-bold rounded-2xl px-6 py-3 transition-all active:translate-y-1 select-none cursor-pointer inline-block text-center;
+  border-bottom-width: 4px;
 }
+
+.duo-btn-green {
+  @apply duo-btn bg-[#58CC02] border-[#46A302] text-white hover:bg-[#61e002];
+}
+
+.duo-btn-outline {
+  @apply duo-btn bg-white border-gray-300 text-[#4b4b4b] hover:bg-gray-50;
+}
+
+.duo-btn-red {
+  @apply duo-btn bg-[#FF4B4B] border-[#CC3333] text-white hover:bg-[#ff6b6b];
+}
+
+.duo-btn-blue {
+  @apply duo-btn bg-[#1CB0F6] border-[#0092D9] text-white hover:bg-[#3dbfff];
+}
+
+.duo-card {
+  @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
+  border-bottom-width: 4px;
+  border-bottom-color: #e5e7eb;
+}
+
+.spot-circle {
+  @apply w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold shadow-lg transition-all;
+  border-bottom-width: 4px;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+.shake { animation: shake 0.4s ease-in-out; }
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.pop { animation: pop 0.3s ease-in-out; }
+
+.flip-card { transition: transform 0.5s; transform-style: preserve-3d; }
+.flip-card.flipped { transform: rotateY(180deg); }
+.flip-card-front, .flip-card-back {
+  backface-visibility: hidden;
+  position: absolute;
+  inset: 0;
+}
+.flip-card-back { transform: rotateY(180deg); }

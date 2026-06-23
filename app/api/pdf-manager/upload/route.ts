@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parsePdfByPage } from "@/lib/parsers/pdfPageParser";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { PDFDocument } from "pdf-lib";
 
 export async function POST(req: Request) {
@@ -24,18 +22,25 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await mkdir(uploadDir, { recursive: true });
+    const supabase = createAdminClient();
+    const baseFilename = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    // Save original PDF
-    const origFilename = `${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`;
-    await writeFile(path.join(uploadDir, origFilename), buffer);
-    const origFileUrl = `/uploads/${origFilename}`;
+    // Upload original PDF to Supabase Storage
+    const origFilename = `${baseFilename}.pdf`;
+    const { error: origErr } = await supabase.storage
+      .from("uploads")
+      .upload(origFilename, buffer, { contentType: "application/pdf", upsert: false });
+
+    if (origErr) {
+      return NextResponse.json({ error: origErr.message }, { status: 500 });
+    }
+
+    const { data: { publicUrl: origFileUrl } } = supabase.storage.from("uploads").getPublicUrl(origFilename);
 
     // Extract text per page
     const pageTexts = await parsePdfByPage(buffer);
 
-    // Split into individual single-page PDFs using pdf-lib
+    // Split into individual single-page PDFs and upload each to Supabase Storage
     const srcDoc = await PDFDocument.load(buffer);
     const pageFileUrls: string[] = [];
 
@@ -44,12 +49,20 @@ export async function POST(req: Request) {
       const [copiedPage] = await singleDoc.copyPages(srcDoc, [i]);
       singleDoc.addPage(copiedPage);
       const singleBytes = await singleDoc.save();
-      const pageFilename = `${origFilename.replace(".pdf", "")}-p${i + 1}.pdf`;
-      await writeFile(path.join(uploadDir, pageFilename), singleBytes);
-      pageFileUrls.push(`/uploads/${pageFilename}`);
-    }
 
-    const supabase = createAdminClient();
+      const pageFilename = `${baseFilename}-p${i + 1}.pdf`;
+      const { error: pageErr } = await supabase.storage
+        .from("pdf-pages")
+        .upload(pageFilename, Buffer.from(singleBytes), { contentType: "application/pdf", upsert: false });
+
+      if (pageErr) {
+        console.error(`[pdf-upload] failed to upload page ${i + 1}:`, pageErr.message);
+        pageFileUrls.push("");
+      } else {
+        const { data: { publicUrl } } = supabase.storage.from("pdf-pages").getPublicUrl(pageFilename);
+        pageFileUrls.push(publicUrl);
+      }
+    }
 
     // Insert pdf_upload record
     const { data: upload, error: uploadErr } = await supabase
@@ -68,7 +81,7 @@ export async function POST(req: Request) {
         pdf_upload_id: upload.id,
         page_number: p.pageNumber,
         text_content: p.text,
-        page_file_url: pageFileUrls[i] ?? null,
+        page_file_url: pageFileUrls[i] || null,
       }))
     );
 

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parsePdf } from "@/lib/parsers/pdfParser";
 import { parsePptx } from "@/lib/parsers/pptxParser";
 
@@ -21,10 +20,18 @@ export async function POST(req: Request) {
 
     const ext = file.name.split(".").pop()?.toLowerCase() || "";
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(path.join(uploadDir, filename), buffer);
-    const fileUrl = `/uploads/${filename}`;
+
+    const supabase = createAdminClient();
+    const { error: storageErr } = await supabase.storage
+      .from("uploads")
+      .upload(filename, buffer, { contentType: file.type || "application/octet-stream", upsert: false });
+
+    if (storageErr) {
+      return NextResponse.json({ error: storageErr.message }, { status: 500 });
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from("uploads").getPublicUrl(filename);
+    const fileUrl = publicUrl;
 
     let slides: { type: string; content: string }[] = [];
 

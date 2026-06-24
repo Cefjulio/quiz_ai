@@ -169,10 +169,11 @@ Return ONLY valid JSON, no markdown, no code block:
   }
 
   // Back-compat: if AI returned old single bulletSummary, convert it
-  if (!raw.pageSummaries && (raw as Record<string, unknown>).bulletSummary) {
+  const rawAny = raw as unknown as Record<string, unknown>;
+  if (!raw.pageSummaries && rawAny.bulletSummary) {
     raw.pageSummaries = [{
       pageNumber: pageNumbers[0] ?? 1,
-      bullets: (raw as Record<string, unknown>).bulletSummary as string[],
+      bullets: rawAny.bulletSummary as string[],
     }];
   }
 

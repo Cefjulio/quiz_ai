@@ -17,10 +17,6 @@ interface Question {
   correctAnswer: string;
 }
 
-interface RatedCard {
-  question: Question;
-  status: Status;
-}
 
 interface Props {
   quiz: { id: string; title: string; questions: Question[] };

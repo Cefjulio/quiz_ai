@@ -114,12 +114,6 @@ type ViewMode = "file" | "slides";
 
 export default function LessonPreview({ title, slides, fileUrl, fileExt, onClose }: Props) {
   const hasPdfPages = slides.some((s) => s.type === "pdf_page");
-
-  // PDF-page lessons get the split view
-  if (hasPdfPages) {
-    return <PdfSplitPreview title={title} slides={slides} onClose={onClose} />;
-  }
-
   const hasPdf = !!fileUrl && fileExt === "pdf";
   const hasPptx = !!fileUrl && (fileExt === "pptx" || fileExt === "ppt");
   const hasFile = hasPdf || hasPptx;
@@ -127,6 +121,11 @@ export default function LessonPreview({ title, slides, fileUrl, fileExt, onClose
   const [viewMode, setViewMode] = useState<ViewMode>(hasFile ? "file" : "slides");
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(1);
+
+  // PDF-page lessons get the split view
+  if (hasPdfPages) {
+    return <PdfSplitPreview title={title} slides={slides} onClose={onClose} />;
+  }
 
   const slide = slides[current];
   const isLast = current === slides.length - 1;

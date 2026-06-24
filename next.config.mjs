@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["pdf-parse", "officeparser", "pdfjs-dist", "pdf-lib"],
+  experimental: {
+    serverComponentsExternalPackages: ["pdf-parse", "officeparser", "pdfjs-dist", "pdf-lib"],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },

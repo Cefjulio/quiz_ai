@@ -14,6 +14,7 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const file = formData.get("file") as File;
     const title = (formData.get("title") as string) || file?.name?.replace(/\.pdf$/i, "") || "Untitled";
+    const courseId = (formData.get("courseId") as string) || null;
 
     if (!file || !file.name.toLowerCase().endsWith(".pdf")) {
       return NextResponse.json({ error: "Only PDF files are accepted" }, { status: 400 });
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
     // Insert pdf_upload record
     const { data: upload, error: uploadErr } = await supabase
       .from("pdf_uploads")
-      .insert({ title, file_url: origFileUrl, total_pages: pageTexts.length })
+      .insert({ title, file_url: origFileUrl, total_pages: pageTexts.length, course_id: courseId })
       .select()
       .single();
 

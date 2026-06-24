@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 export const metadata: Metadata = {
   title: "LearnPath — Gamified Learning",
   description: "Learn anything with gamified courses and AI-powered quizzes",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

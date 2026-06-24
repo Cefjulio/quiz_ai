@@ -70,7 +70,7 @@ export default function PathwayMap({
               const status = getSpotStatus(spot, allSpots, completedIds);
               const isLesson = spot.type === "LESSON";
               const label = spot.lesson?.title || spot.quiz?.title || "Untitled";
-              const offset = [0, 60, 90, 60, 0, -60, -90, -60][i % 8];
+              const offsetBase = [0, 60, 90, 60, 0, -60, -90, -60][i % 8];
               const fcStats = flashcardStats[spot.id];
 
               return (
@@ -79,8 +79,8 @@ export default function PathwayMap({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  style={{ marginLeft: `${offset}px` }}
                   className="flex flex-col items-center"
+                  style={{ marginLeft: offsetBase > 0 ? `min(${offsetBase}px, 8vw)` : `max(${offsetBase}px, -8vw)` }}
                 >
                   {status === "locked" ? (
                     <div className="spot-circle bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed w-20 h-20">

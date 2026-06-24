@@ -24,35 +24,64 @@ interface Props {
 
 function PdfSplitPreview({ title, slides, onClose }: { title: string; slides: Slide[]; onClose: () => void }) {
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [mobileTab, setMobileTab] = useState<"pdf" | "summary">("pdf");
 
   const pageSlides = slides.filter((s) => s.type === "pdf_page");
   const current = pageSlides[currentIdx];
   const summaryLines: string[] = current?.summary ?? [];
+  const pageLabel = current?.content.match(/Page (\d+)/)?.[1] ?? String(currentIdx + 1);
+
+  const navBar = (
+    <div className="flex items-center gap-2 px-3 py-2 border-t border-gray-100 flex-shrink-0">
+      <button onClick={() => setCurrentIdx((i) => i - 1)} disabled={currentIdx === 0}
+        className="duo-btn-outline text-xs py-1.5 px-3 disabled:opacity-40">← Prev</button>
+      <div className="flex-1 flex justify-center gap-1">
+        {pageSlides.slice(Math.max(0, currentIdx - 4), Math.min(pageSlides.length, currentIdx + 6)).map((_, rel) => {
+          const abs = rel + Math.max(0, currentIdx - 4);
+          return <button key={abs} onClick={() => setCurrentIdx(abs)}
+            className={`h-1.5 rounded-full transition-all ${abs === currentIdx ? "bg-[#58CC02] w-5" : "bg-gray-300 w-1.5"}`} />;
+        })}
+      </div>
+      {currentIdx === pageSlides.length - 1 ? (
+        <button onClick={onClose} className="duo-btn-green text-xs py-1.5 px-3">Done ✓</button>
+      ) : (
+        <button onClick={() => setCurrentIdx((i) => i + 1)} className="duo-btn-green text-xs py-1.5 px-3">Next →</button>
+      )}
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4 flex-shrink-0">
+      <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-3 flex-shrink-0">
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
         <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
-          <div
-            className="h-2 rounded-full bg-[#58CC02] transition-all duration-500"
-            style={{ width: `${((currentIdx + 1) / pageSlides.length) * 100}%` }}
-          />
+          <div className="h-2 rounded-full bg-[#58CC02] transition-all duration-500"
+            style={{ width: `${((currentIdx + 1) / pageSlides.length) * 100}%` }} />
         </div>
-        <span className="text-sm font-bold text-gray-500">p.{currentIdx + 1}/{pageSlides.length}</span>
-        <span className="text-xs font-black text-[#58CC02] uppercase tracking-wide">Preview</span>
+        <span className="text-xs font-bold text-gray-500">{currentIdx + 1}/{pageSlides.length}</span>
+        <span className="text-xs font-black text-[#58CC02] uppercase tracking-wide hidden sm:block">Preview</span>
+      </div>
+
+      {/* Mobile tab switcher */}
+      <div className="md:hidden bg-white border-b border-gray-100 flex flex-shrink-0">
+        <button onClick={() => setMobileTab("pdf")}
+          className={`flex-1 py-2 text-xs font-black uppercase tracking-wide border-b-2 transition-colors ${mobileTab === "pdf" ? "border-[#58CC02] text-[#58CC02]" : "border-transparent text-gray-400"}`}>
+          📄 PDF
+        </button>
+        <button onClick={() => setMobileTab("summary")}
+          className={`flex-1 py-2 text-xs font-black uppercase tracking-wide border-b-2 transition-colors ${mobileTab === "summary" ? "border-[#58CC02] text-[#58CC02]" : "border-transparent text-gray-400"}`}>
+          📋 Summary
+        </button>
       </div>
 
       {/* Split body */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* LEFT — PDF page */}
-        <div className="flex flex-col w-1/2 border-r border-gray-200 bg-white overflow-hidden">
-          <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between flex-shrink-0">
-            <span className="text-xs font-black text-gray-500 uppercase tracking-wide">📄 {title}</span>
-            <span className="text-xs font-bold text-gray-400">
-              p.{current?.content.match(/Page (\d+)/)?.[1] ?? currentIdx + 1}
-            </span>
+        <div className={`flex flex-col bg-white overflow-hidden md:w-1/2 md:border-r border-gray-200 ${mobileTab === "pdf" ? "flex-1" : "hidden md:flex"}`}>
+          <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between flex-shrink-0">
+            <span className="text-xs font-black text-gray-500 uppercase tracking-wide truncate">📄 {title}</span>
+            <span className="text-xs font-bold text-gray-400 ml-2 flex-shrink-0">p.{pageLabel}</span>
           </div>
           <div className="flex-1 min-h-0">
             {current?.fileUrl ? (
@@ -63,39 +92,20 @@ function PdfSplitPreview({ title, slides, onClose }: { title: string; slides: Sl
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3 px-4 py-3 border-t border-gray-100 flex-shrink-0">
-            <button onClick={() => setCurrentIdx((i) => i - 1)} disabled={currentIdx === 0}
-              className="duo-btn-outline text-xs py-1.5 px-3 disabled:opacity-40">← Prev</button>
-            <div className="flex-1 flex justify-center gap-1">
-              {pageSlides.slice(Math.max(0, currentIdx - 4), Math.min(pageSlides.length, currentIdx + 6)).map((_, rel) => {
-                const abs = rel + Math.max(0, currentIdx - 4);
-                return <button key={abs} onClick={() => setCurrentIdx(abs)}
-                  className={`h-1.5 rounded-full transition-all ${abs === currentIdx ? "bg-[#58CC02] w-5" : "bg-gray-300 w-1.5"}`} />;
-              })}
-            </div>
-            {currentIdx === pageSlides.length - 1 ? (
-              <button onClick={onClose} className="duo-btn-green text-xs py-1.5 px-3">Done ✓</button>
-            ) : (
-              <button onClick={() => setCurrentIdx((i) => i + 1)} className="duo-btn-green text-xs py-1.5 px-3">Next →</button>
-            )}
-          </div>
+          {navBar}
         </div>
 
         {/* RIGHT — Per-page summary */}
-        <div className="flex flex-col w-1/2 overflow-hidden bg-[#f7f7f7]">
-          <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-            <span className="text-xs font-black text-gray-500 uppercase tracking-wide">
-              📋 Page {current?.content.match(/Page (\d+)/)?.[1] ?? currentIdx + 1} — Summary
-            </span>
+        <div className={`flex flex-col bg-[#f7f7f7] overflow-hidden md:w-1/2 ${mobileTab === "summary" ? "flex-1" : "hidden md:flex"}`}>
+          <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+            <span className="text-xs font-black text-gray-500 uppercase tracking-wide">📋 Page {pageLabel} — Summary</span>
           </div>
-          <div key={currentIdx} className="flex-1 overflow-y-auto px-5 py-4">
+          <div key={currentIdx} className="flex-1 overflow-y-auto px-4 py-4">
             {summaryLines.length > 0 ? (
               <ul className="space-y-3">
                 {summaryLines.map((bullet, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#58CC02] text-white text-xs font-black flex items-center justify-center mt-0.5">
-                      {i + 1}
-                    </span>
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#58CC02] text-white text-xs font-black flex items-center justify-center mt-0.5">{i + 1}</span>
                     <p className="text-gray-700 font-medium text-sm leading-relaxed">{bullet}</p>
                   </li>
                 ))}
@@ -104,6 +114,7 @@ function PdfSplitPreview({ title, slides, onClose }: { title: string; slides: Sl
               <p className="text-gray-400 text-sm italic">No summary for this page.</p>
             )}
           </div>
+          <div className="md:hidden">{navBar}</div>
         </div>
       </div>
     </div>

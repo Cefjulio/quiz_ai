@@ -14,11 +14,18 @@
 
 * {
   font-family: 'Nunito', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
 }
 
 body {
   background-color: #f7f7f7;
   color: #1f1f1f;
+  overflow-x: hidden;
+}
+
+button, a {
+  touch-action: manipulation;
 }
 
 .duo-btn {

@@ -3,6 +3,7 @@ import { getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Navbar from "@/components/ui/Navbar";
 import PathwayMap from "@/components/pathway/PathwayMap";
+import RealtimeSync from "@/components/RealtimeSync";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,7 @@ export default async function LearnCoursePage({ params }: { params: { courseId: 
 
   return (
     <div className="min-h-screen bg-[#f7f7f7]">
+      <RealtimeSync userId={user.id} />
       <Navbar />
       <main className="max-w-2xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">

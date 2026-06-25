@@ -16,6 +16,7 @@ interface PdfUpload {
   title: string;
   file_url: string;
   total_pages: number;
+  course_id?: string | null;
 }
 
 interface Unit { id: string; title: string; }
@@ -36,7 +37,7 @@ export default function PdfPageGrid({ pdf, courses, onBack }: Props) {
   const [batchStart, setBatchStart] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
-  const [targetCourseId, setTargetCourseId] = useState(courses[0]?.id ?? "");
+  const [targetCourseId, setTargetCourseId] = useState(pdf.course_id ?? courses[0]?.id ?? "");
   const [targetUnitId, setTargetUnitId] = useState("");
   const [creating, setCreating] = useState(false);
   const [previewPage, setPreviewPage] = useState<PdfPage | null>(null);

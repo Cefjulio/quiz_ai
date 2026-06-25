@@ -181,11 +181,16 @@ export default function PdfPageGrid({ pdf, courses, onBack }: Props) {
               >
                 {/* Page number header */}
                 <div className={`px-2 py-1.5 rounded-t-xl flex items-center justify-between ${isSelected ? "bg-[#58CC02]" : page.is_used ? "bg-amber-200" : "bg-gray-100"}`}>
-                  <span className={`text-xs font-black ${isSelected ? "text-white" : "text-gray-600"}`}>
-                    p.{page.page_number}
-                  </span>
-                  {isSelected && <span className="text-white text-xs">✓</span>}
-                  {page.is_used && <span className="text-amber-700 text-[10px] font-black">Used</span>}
+                  <div className="flex flex-col min-w-0">
+                    <span className={`text-xs font-black ${isSelected ? "text-white" : "text-gray-600"}`}>
+                      p.{page.page_number}
+                    </span>
+                    <span className={`text-[9px] font-bold truncate ${isSelected ? "text-white/80" : "text-gray-400"}`}>
+                      {pdf.title}
+                    </span>
+                  </div>
+                  {isSelected && <span className="text-white text-xs flex-shrink-0">✓</span>}
+                  {page.is_used && <span className="text-amber-700 text-[10px] font-black flex-shrink-0">Used</span>}
                 </div>
 
                 {/* Text preview */}

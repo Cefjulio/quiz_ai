@@ -183,3 +183,47 @@ Return ONLY valid JSON, no markdown, no code block:
 
   return raw;
 }
+
+export interface TranscriptLessonResult {
+  bullets: string[];
+  flashcards: FlashcardData[];
+}
+
+export async function generateTranscriptLesson(
+  transcript: string,
+  videoTitle: string
+): Promise<TranscriptLessonResult> {
+  const capped = transcript.slice(0, 3000);
+
+  const prompt = `You are an expert educator. You have been given a video transcript titled "${videoTitle}".
+
+TRANSCRIPT:
+${capped}
+
+Your tasks:
+1. Write 6-10 bullet-point summary notes. Each bullet must be a complete, informative sentence covering a key concept, tip, or insight.
+2. Generate 6-10 flashcards covering the most important concepts. Each flashcard has a FRONT (specific question or term) and BACK (thorough answer — 1-2 sentences).
+
+Return ONLY valid JSON, no markdown, no code block:
+{
+  "bullets": ["Complete informative sentence..."],
+  "flashcards": [
+    { "front": "What is X?", "back": "X is ... [full explanation]" }
+  ]
+}`;
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2048,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    console.error("[ai] generateTranscriptLesson raw:", text.slice(0, 300));
+    throw new Error("AI did not return valid JSON");
+  }
+
+  return JSON.parse(jsonMatch[0]) as TranscriptLessonResult;
+}

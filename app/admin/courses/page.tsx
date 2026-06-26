@@ -24,6 +24,9 @@ export default async function AdminCoursesPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-black text-gray-800">Manage Courses</h1>
           <div className="flex gap-3">
+            <Link href="/admin/course-import" className="duo-btn-outline text-sm">
+              📥 Batch Import
+            </Link>
             <Link href="/admin/pdf-manager" className="duo-btn-outline text-sm">
               📄 PDF Manager
             </Link>

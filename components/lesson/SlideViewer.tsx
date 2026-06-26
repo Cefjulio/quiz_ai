@@ -36,7 +36,8 @@ function PdfSplitViewer({
   const [completing, setCompleting] = useState(false);
   const [mobileTab, setMobileTab] = useState<"pdf" | "summary">("pdf");
 
-  const pageSlides = lesson.slides.filter((s) => s.type === "pdf_page");
+  const pageSlides = lesson.slides.filter((s) => s.type === "pdf_page" || s.type === "transcript");
+  const isTranscript = pageSlides.every((s) => s.type === "transcript");
   const current = pageSlides[currentIdx];
   const isLast = currentIdx === pageSlides.length - 1;
   const summaryLines: string[] = current?.summary ?? [];
@@ -102,7 +103,7 @@ function PdfSplitViewer({
           onClick={() => setMobileTab("pdf")}
           className={`flex-1 py-2 text-xs font-black uppercase tracking-wide border-b-2 transition-colors ${mobileTab === "pdf" ? "border-[#58CC02] text-[#58CC02]" : "border-transparent text-gray-400"}`}
         >
-          📄 PDF
+          {isTranscript ? "📝 Transcript" : "📄 PDF"}
         </button>
         <button
           onClick={() => setMobileTab("summary")}
@@ -118,7 +119,7 @@ function PdfSplitViewer({
         {/* LEFT — PDF */}
         <div className={`flex flex-col bg-white overflow-hidden md:w-1/2 md:border-r border-gray-200 ${mobileTab === "pdf" ? "flex-1" : "hidden md:flex"}`}>
           <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between flex-shrink-0">
-            <span className="text-xs font-black text-gray-500 uppercase tracking-wide truncate">📄 {lesson.title}</span>
+            <span className="text-xs font-black text-gray-500 uppercase tracking-wide truncate">{isTranscript ? "📝" : "📄"} {lesson.title}</span>
             <span className="text-xs font-bold text-gray-400 flex-shrink-0 ml-2">p.{pageLabel}</span>
           </div>
           <div className="flex-1 min-h-0 relative">
@@ -186,7 +187,7 @@ export default function SlideViewer({
   const [direction, setDirection] = useState(1);
   const [completing, setCompleting] = useState(false);
 
-  const hasPdfPages = lesson.slides.some((s) => s.type === "pdf_page");
+  const hasPdfPages = lesson.slides.some((s) => s.type === "pdf_page" || s.type === "transcript");
   if (hasPdfPages) {
     return <PdfSplitViewer lesson={lesson} spotId={spotId} courseId={courseId} />;
   }

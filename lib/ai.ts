@@ -214,7 +214,7 @@ Return ONLY valid JSON, no markdown, no code block:
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    max_tokens: 1024,
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -222,8 +222,12 @@ Return ONLY valid JSON, no markdown, no code block:
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     console.error("[ai] generateTranscriptLesson raw:", text.slice(0, 300));
-    throw new Error("AI did not return valid JSON");
+    throw new Error("AI did not return valid JSON — transcript may be too short or contain no educational content");
   }
 
-  return JSON.parse(jsonMatch[0]) as TranscriptLessonResult;
+  try {
+    return JSON.parse(jsonMatch[0]) as TranscriptLessonResult;
+  } catch {
+    throw new Error("AI returned malformed JSON — please retry this video");
+  }
 }

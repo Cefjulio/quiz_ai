@@ -40,8 +40,10 @@ export function parseCourseStructure(text: string): ParsedSection[] {
       }
       currentVideo = { title: videoMatch[1], transcript: "", order: ++videoOrder };
     } else if (currentVideo) {
-      // Skip bare subtitle line numbers (e.g. "1", "42")
-      if (!/^\d+$/.test(line) && line.length > 0) {
+      // Skip bare line numbers (subtitle timestamps) and URLs
+      const isNumber = /^\d+$/.test(line);
+      const isUrl = /^https?:\/\//i.test(line);
+      if (!isNumber && !isUrl && line.length > 0) {
         currentVideo.transcript += line + " ";
       }
     }

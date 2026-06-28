@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateTranscriptLesson } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Vercel Pro: allow up to 60s for AI calls
 
 interface VideoInput {
   title: string;
@@ -36,11 +37,19 @@ export async function POST(req: Request) {
 
     for (const video of videos) {
       try {
-        const { bullets, flashcards } = await generateTranscriptLesson(video.transcript, video.title);
+        const cleanTranscript = video.transcript.replace(/https?:\/\/\S+/g, "").trim();
+        if (cleanTranscript.length < 80) {
+          results.push({
+            videoTitle: video.title,
+            error: `Transcript too short (${cleanTranscript.length} chars after removing URLs) — not enough educational content to generate a lesson`,
+          });
+          continue;
+        }
+        const { bullets, flashcards } = await generateTranscriptLesson(cleanTranscript, video.title);
 
         const slide = {
           type: "transcript",
-          content: video.transcript.slice(0, 3000),
+          content: cleanTranscript.slice(0, 3000),
           fileUrl: null,
           summary: bullets,
         };

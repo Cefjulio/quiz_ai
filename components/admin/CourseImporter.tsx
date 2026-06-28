@@ -35,7 +35,7 @@ interface BatchResult {
   error?: string;
 }
 
-const BATCH_SIZE = 3;
+const BATCH_SIZE = 1; // 1 video per request to stay within Vercel's 10-60s function limit
 
 export default function CourseImporter({ courses }: { courses: Course[] }) {
   const [courseId, setCourseId] = useState(courses[0]?.id ?? "");
@@ -115,6 +115,16 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
         });
 
         if (!res.ok) {
+          let serverError = "Server error — request timed out or failed";
+          try {
+            const errBody = await res.json();
+            serverError = errBody.error ?? serverError;
+          } catch { /* ignore */ }
+          const failedResults: BatchResult[] = batch.map((v) => ({
+            videoTitle: v.title,
+            error: serverError,
+          }));
+          setBatchResults((prev) => [...prev, ...failedResults]);
           setErrorCount((c) => c + batch.length);
           setProcessedCount((c) => c + batch.length);
           continue;
@@ -125,7 +135,13 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
         const errors = results.filter((r) => r.error).length;
         setErrorCount((c) => c + errors);
         setProcessedCount((c) => c + results.length);
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Network error";
+        const failedResults: BatchResult[] = batch.map((v) => ({
+          videoTitle: v.title,
+          error: msg,
+        }));
+        setBatchResults((prev) => [...prev, ...failedResults]);
         setErrorCount((c) => c + batch.length);
         setProcessedCount((c) => c + batch.length);
       }
@@ -146,7 +162,7 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
     ? Math.round((processedCount / parseResult.totalVideos) * 100)
     : 0;
   const estMinutes = parseResult
-    ? Math.ceil((parseResult.totalVideos - processedCount) * (5 / BATCH_SIZE))
+    ? Math.ceil((parseResult.totalVideos - processedCount) * 7 / 60)
     : 0;
 
   // ── Done ────────────────────────────────────────────────────────────────────
@@ -158,9 +174,22 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
         <div className="text-6xl">🎉</div>
         <h2 className="text-2xl font-black text-gray-800">Import Complete!</h2>
         <p className="text-gray-600">
-          Created <strong>{succeeded}</strong> lessons + flashcard quiz pairs.
-          {failed > 0 && <span className="text-red-500 ml-2">{failed} videos had errors.</span>}
+          Created <strong>{succeeded}</strong> lesson + flashcard quiz pair{succeeded !== 1 ? "s" : ""}.
+          {failed > 0 && <span className="text-red-500 ml-2">{failed} video{failed > 1 ? "s" : ""} skipped due to errors.</span>}
         </p>
+
+        {failed > 0 && (
+          <div className="text-left bg-red-50 border border-red-100 rounded-xl p-4 space-y-2 max-h-48 overflow-y-auto">
+            <p className="text-xs font-black text-red-600 uppercase tracking-wide mb-1">Skipped Videos — Error Details:</p>
+            {batchResults.filter((r) => r.error).map((r, i) => (
+              <div key={i} className="text-xs leading-relaxed">
+                <p className="font-bold text-red-700">📹 {r.videoTitle}</p>
+                <p className="text-red-500 mt-0.5 pl-4">↳ {r.error}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-3 justify-center">
           <button
             onClick={() => { setStatus("idle"); setFile(null); setParseResult(null); setBatchResults([]); }}
@@ -205,7 +234,19 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
           </div>
         )}
         {errorCount > 0 && (
-          <p className="text-xs text-red-500 font-bold">{errorCount} videos had errors and were skipped.</p>
+          <div className="bg-red-50 border border-red-100 rounded-xl p-3 space-y-2 max-h-40 overflow-y-auto">
+            <p className="text-xs font-black text-red-600 uppercase tracking-wide">
+              {errorCount} video{errorCount > 1 ? "s" : ""} skipped — errors:
+            </p>
+            {batchResults
+              .filter((r) => r.error)
+              .map((r, i) => (
+                <div key={i} className="text-xs text-red-700 leading-relaxed">
+                  <span className="font-bold">📹 {r.videoTitle}:</span>{" "}
+                  <span className="text-red-500">{r.error}</span>
+                </div>
+              ))}
+          </div>
         )}
         <p className="text-xs text-gray-400 text-center">
           Keep this page open while importing. Do not close or refresh the browser.
@@ -228,7 +269,7 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
             <strong>{totalVideos * 2} pathway spots</strong> (1 lesson + 1 flashcard deck per video).
           </p>
           <p className="text-xs text-amber-600 font-bold mt-2 bg-amber-50 rounded-lg px-3 py-2">
-            ⏱ Estimated time: ~{estMin} minutes — AI processes {BATCH_SIZE} videos at a time
+            ⏱ Estimated time: ~{Math.ceil(totalVideos * 7 / 60)} minutes — AI generates one lesson at a time
           </p>
         </div>
 

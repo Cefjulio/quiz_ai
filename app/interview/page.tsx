@@ -55,7 +55,7 @@ export default async function InterviewPage() {
           <h1 className="text-3xl font-black text-gray-800">🎤 Interview Practice</h1>
         </div>
         <p className="text-gray-500 text-sm mb-8 ml-10">
-          Practice speaking about what you've learned. AI adapts its questions to your course content.
+          Practice speaking about what you&apos;ve learned. AI adapts its questions to your course content.
         </p>
 
         {!courses?.length ? (

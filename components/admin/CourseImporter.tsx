@@ -258,7 +258,7 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
   // ── Preview ──────────────────────────────────────────────────────────────────
   if (status === "preview" && parseResult) {
     const totalVideos = parseResult.totalVideos;
-    const estMin = Math.ceil(totalVideos * 5 / BATCH_SIZE);
+    const estMin = Math.ceil(totalVideos * 7 / 60);
     return (
       <div className="space-y-4">
         <div className="duo-card p-5">

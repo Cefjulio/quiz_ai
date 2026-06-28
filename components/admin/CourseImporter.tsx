@@ -269,7 +269,7 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
             <strong>{totalVideos * 2} pathway spots</strong> (1 lesson + 1 flashcard deck per video).
           </p>
           <p className="text-xs text-amber-600 font-bold mt-2 bg-amber-50 rounded-lg px-3 py-2">
-            ⏱ Estimated time: ~{Math.ceil(totalVideos * 7 / 60)} minutes — AI generates one lesson at a time
+            ⏱ Estimated time: ~{estMin} minutes — AI generates one lesson at a time
           </p>
         </div>
 

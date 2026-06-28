@@ -63,6 +63,9 @@ export default function AdminCourseList({ courses }: { courses: AdminCourse[] })
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Link href={`/learn/${course.id}`} className="duo-btn-green text-xs py-2 px-4">
+                  Learn
+                </Link>
                 <Link href={`/admin/courses/${course.id}`} className="duo-btn-outline text-xs py-2 px-4">
                   Edit
                 </Link>

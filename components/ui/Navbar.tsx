@@ -40,6 +40,9 @@ export default function Navbar() {
           <Link href="/dashboard" className="text-sm font-bold text-gray-600 hover:text-[#58CC02] transition">
             Learn
           </Link>
+          <Link href="/interview" className="text-sm font-bold text-gray-600 hover:text-[#58CC02] transition">
+            🎤 Interview
+          </Link>
           <button onClick={handleSignOut} className="text-sm font-bold text-gray-400 hover:text-red-400 transition">
             Log out
           </button>
@@ -75,6 +78,13 @@ export default function Navbar() {
             onClick={() => setMenuOpen(false)}
           >
             Learn
+          </Link>
+          <Link
+            href="/interview"
+            className="text-sm font-bold text-gray-700 py-2 border-b border-gray-100"
+            onClick={() => setMenuOpen(false)}
+          >
+            🎤 Interview
           </Link>
           <button
             onClick={() => { setMenuOpen(false); handleSignOut(); }}

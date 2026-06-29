@@ -201,33 +201,32 @@ TRANSCRIPT:
 ${capped}
 
 Your tasks:
-1. Write 6-10 bullet-point summary notes. Each bullet must be a complete, informative sentence covering a key concept, tip, or insight.
-2. Generate 6-10 flashcards covering the most important concepts. Each flashcard has a FRONT (specific question or term) and BACK (thorough answer — 1-2 sentences).
+1. Write exactly 5 bullet-point summary notes. Each bullet must be a complete, informative sentence covering a key concept, tip, or insight.
+2. Generate exactly 5 flashcards covering the most important concepts. Each flashcard has a FRONT (short question or term) and BACK (concise answer, 1 sentence max).
 
-Return ONLY valid JSON, no markdown, no code block:
-{
-  "bullets": ["Complete informative sentence..."],
-  "flashcards": [
-    { "front": "What is X?", "back": "X is ... [full explanation]" }
-  ]
-}`;
+IMPORTANT: Return ONLY the raw JSON object below — no markdown, no code fences, no explanation before or after:
+{"bullets":["sentence 1","sentence 2","sentence 3","sentence 4","sentence 5"],"flashcards":[{"front":"Q1?","back":"A1."},{"front":"Q2?","back":"A2."},{"front":"Q3?","back":"A3."},{"front":"Q4?","back":"A4."},{"front":"Q5?","back":"A5."}]}`;
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 1024,
+    max_tokens: 1500,
     messages: [{ role: "user", content: prompt }],
   });
 
   const text = message.content[0].type === "text" ? message.content[0].text : "";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+  // Strip markdown code fences if present, then extract JSON
+  const stripped = text.replace(/```(?:json)?\n?/g, "").trim();
+  const jsonMatch = stripped.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    console.error("[ai] generateTranscriptLesson raw:", text.slice(0, 300));
-    throw new Error("AI did not return valid JSON — transcript may be too short or contain no educational content");
+    console.error("[ai] generateTranscriptLesson no JSON found. Raw:", text.slice(0, 400));
+    throw new Error("AI did not return valid JSON — transcript may have no educational content");
   }
 
   try {
     return JSON.parse(jsonMatch[0]) as TranscriptLessonResult;
-  } catch {
-    throw new Error("AI returned malformed JSON — please retry this video");
+  } catch (parseErr) {
+    console.error("[ai] JSON parse failed:", parseErr, "\nExtracted:", jsonMatch[0].slice(0, 400));
+    throw new Error("AI returned malformed JSON — the response was cut off. This video will be retried on the next import.");
   }
 }

@@ -47,7 +47,8 @@ export async function POST(req: Request) {
         );
 
       lessons = (spots ?? [])
-        .map((s: { lesson: { id: string; title: string; slides: Array<{ content?: string }> } | null }) => s.lesson)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((s: any) => Array.isArray(s.lesson) ? s.lesson[0] : s.lesson)
         .filter(Boolean) as Array<{ id: string; title: string; slides: Array<{ content?: string }> }>;
     }
 

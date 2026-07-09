@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { courseId, lessonId } = await req.json();
+    const { courseId, lessonId, transcript: transcriptOverride } = await req.json();
     if (!courseId && !lessonId) {
       return NextResponse.json({ error: "courseId or lessonId required" }, { status: 400 });
     }
@@ -56,11 +56,9 @@ export async function POST(req: Request) {
 
     for (const lesson of lessons) {
       try {
-        // Reconstruct full transcript from all stored slide content
-        const transcript = lesson.slides
-          .map((s) => s.content ?? "")
-          .join(" ")
-          .trim();
+        // Use provided transcript override, or reconstruct from stored slides
+        const transcript = (transcriptOverride as string | undefined)?.trim()
+          || lesson.slides.map((s) => s.content ?? "").join(" ").trim();
 
         if (transcript.length < 80) {
           results.push({ lessonTitle: lesson.title, error: "Stored transcript too short to regenerate" });

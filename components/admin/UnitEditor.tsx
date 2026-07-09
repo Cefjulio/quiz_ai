@@ -55,6 +55,9 @@ export default function UnitEditor({ unit }: { unit: Unit; courseId: string }) {
   const [editTitle, setEditTitle] = useState(unit.title);
   const [editDescription, setEditDescription] = useState(unit.description || "");
   const [savingUnit, setSavingUnit] = useState(false);
+  const [transcriptModal, setTranscriptModal] = useState<{ lessonId: string; lessonTitle: string; transcript: string } | null>(null);
+  const [regenStatus, setRegenStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [regenMessage, setRegenMessage] = useState("");
 
   const spots = unit.path_spots ?? [];
 
@@ -107,6 +110,40 @@ export default function UnitEditor({ unit }: { unit: Unit; courseId: string }) {
     if (!res.ok) return;
     const quiz = await res.json();
     setPreviewQuiz({ id: quiz.id, title: quiz.title, questions: quiz.questions ?? [] });
+  }
+
+  function openTranscriptEditor(spot: PathSpot) {
+    if (!spot.lesson) return;
+    const transcript = spot.lesson.slides
+      .map((s: { content: string }) => s.content ?? "")
+      .join("\n\n")
+      .trim();
+    setRegenStatus("idle");
+    setRegenMessage("");
+    setTranscriptModal({ lessonId: spot.lesson.id, lessonTitle: spot.lesson.title, transcript });
+  }
+
+  async function regenerateFromTranscript() {
+    if (!transcriptModal) return;
+    setRegenStatus("loading");
+    setRegenMessage("");
+    try {
+      const res = await fetch("/api/admin/regenerate-course", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId: transcriptModal.lessonId, transcript: transcriptModal.transcript }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      const result = data.results?.[0];
+      if (result?.error) throw new Error(result.error);
+      setRegenStatus("done");
+      setRegenMessage(`✅ Done — ${result?.slideCount ?? "?"} pages, ${result?.flashcardCount ?? "?"} flashcards created.`);
+      router.refresh();
+    } catch (err) {
+      setRegenStatus("error");
+      setRegenMessage(err instanceof Error ? err.message : "An error occurred");
+    }
   }
 
   function openNewQuiz(lessonId: string) {
@@ -210,6 +247,15 @@ export default function UnitEditor({ unit }: { unit: Unit; courseId: string }) {
                       👁 View
                     </button>
                   )}
+                  {spot.type === "LESSON" && spot.lesson && (
+                    <button
+                      onClick={() => openTranscriptEditor(spot)}
+                      className="text-xs text-amber-600 hover:text-amber-800 font-bold px-2"
+                      title="Edit transcript and regenerate lesson"
+                    >
+                      📝 Transcript
+                    </button>
+                  )}
                   {spot.type === "LESSON" && (
                     <button
                       onClick={() => openEditLesson(spot)}
@@ -306,6 +352,65 @@ export default function UnitEditor({ unit }: { unit: Unit; courseId: string }) {
           onClose={() => { setShowQuizGenerator(false); setEditingSpot(null); setSelectedLessonId(null); }}
           onDone={() => { setShowQuizGenerator(false); setEditingSpot(null); setSelectedLessonId(null); router.refresh(); }}
         />
+      )}
+
+      {/* Transcript editor modal */}
+      {transcriptModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-3 flex-shrink-0">
+              <div>
+                <h3 className="font-black text-gray-800 text-lg">📝 Edit Transcript</h3>
+                <p className="text-xs text-gray-500 mt-0.5 font-semibold truncate">{transcriptModal.lessonTitle}</p>
+              </div>
+              <button onClick={() => setTranscriptModal(null)} className="text-gray-400 hover:text-gray-600 font-bold text-xl flex-shrink-0">✕</button>
+            </div>
+
+            {/* Instructions */}
+            <div className="mx-6 mt-4 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-800 flex-shrink-0">
+              <p className="font-black mb-1">💡 How to use</p>
+              <p>Edit or paste the complete transcript below, then click <strong>Regenerate</strong>. The lesson pages and flashcards will be rebuilt from this text.</p>
+            </div>
+
+            {/* Textarea */}
+            <div className="flex-1 overflow-hidden px-6 py-4 min-h-0">
+              <textarea
+                value={transcriptModal.transcript}
+                onChange={(e) => setTranscriptModal({ ...transcriptModal, transcript: e.target.value })}
+                className="w-full h-full min-h-[280px] border-2 border-gray-200 rounded-xl px-4 py-3 text-sm font-mono leading-relaxed focus:border-[#58CC02] focus:outline-none resize-none"
+                placeholder="Paste or type the full transcript here…"
+                disabled={regenStatus === "loading"}
+              />
+            </div>
+
+            {/* Status message */}
+            {regenMessage && (
+              <div className={`mx-6 mb-3 rounded-xl px-4 py-2 text-sm font-semibold flex-shrink-0 ${regenStatus === "done" ? "bg-green-50 text-green-700 border border-green-100" : "bg-red-50 text-red-700 border border-red-100"}`}>
+                {regenMessage}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
+              <button
+                onClick={() => setTranscriptModal(null)}
+                className="duo-btn-outline flex-1 text-sm"
+              >
+                {regenStatus === "done" ? "Close" : "Cancel"}
+              </button>
+              {regenStatus !== "done" && (
+                <button
+                  onClick={regenerateFromTranscript}
+                  disabled={regenStatus === "loading" || !transcriptModal.transcript.trim()}
+                  className="duo-btn-green flex-1 text-sm disabled:opacity-60"
+                >
+                  {regenStatus === "loading" ? "⏳ Regenerating…" : "🔄 Regenerate Lesson & Flashcards"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

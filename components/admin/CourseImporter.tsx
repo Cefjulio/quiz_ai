@@ -48,6 +48,8 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
   const [currentVideoTitle, setCurrentVideoTitle] = useState("");
   const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
   const abortRef = useRef(false);
+  // Per-video transcript editing in the preview step
+  const [editingVideo, setEditingVideo] = useState<{ sectionOrder: number; videoOrder: number } | null>(null);
 
   async function handleParse() {
     if (!file || !courseId) { toast.error("Select a course and a PDF file"); return; }
@@ -148,6 +150,23 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
     }
 
     setStatus("done");
+  }
+
+  function updateVideoTranscript(sectionOrder: number, videoOrder: number, newTranscript: string) {
+    setParseResult((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sections: prev.sections.map((s) =>
+          s.order !== sectionOrder ? s : {
+            ...s,
+            videos: s.videos.map((v) =>
+              v.order !== videoOrder ? v : { ...v, transcript: newTranscript }
+            ),
+          }
+        ),
+      };
+    });
   }
 
   function toggleSection(order: number) {
@@ -259,6 +278,8 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
   if (status === "preview" && parseResult) {
     const totalVideos = parseResult.totalVideos;
     const estMin = Math.ceil(totalVideos * 7 / 60);
+    const allVideos = parseResult.sections.flatMap((s) => s.videos);
+    const shortVideos = allVideos.filter((v) => v.transcript.length < 300);
     return (
       <div className="space-y-4">
         <div className="duo-card p-5">
@@ -271,6 +292,19 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
           <p className="text-xs text-amber-600 font-bold mt-2 bg-amber-50 rounded-lg px-3 py-2">
             ⏱ Estimated time: ~{estMin} minutes — AI generates one lesson at a time
           </p>
+          {shortVideos.length > 0 && (
+            <div className="mt-3 bg-red-50 border border-red-100 rounded-xl px-4 py-3 space-y-1">
+              <p className="text-xs font-black text-red-600 uppercase tracking-wide">
+                ⚠ {shortVideos.length} video{shortVideos.length > 1 ? "s have" : " has"} a very short transcript — may be incomplete
+              </p>
+              {shortVideos.map((v) => (
+                <p key={v.order} className="text-xs text-red-500">
+                  · {v.title} <span className="text-red-400">({v.transcript.length} chars)</span>
+                </p>
+              ))}
+              <p className="text-xs text-red-400 mt-1">Expand the section below and click <strong>✏️ Edit</strong> to paste in the missing transcript before importing.</p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
@@ -291,15 +325,49 @@ export default function CourseImporter({ courses }: { courses: Course[] }) {
               </button>
               {expandedSections.has(section.order) && (
                 <div className="border-t border-gray-100 divide-y divide-gray-50 bg-gray-50/50">
-                  {section.videos.map((video) => (
-                    <div key={video.order} className="px-4 py-2 flex items-start gap-3">
-                      <span className="text-gray-300 text-xs w-6 flex-shrink-0 pt-0.5">{video.order}.</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-700">📹 {video.title}</p>
-                        <p className="text-xs text-gray-400 truncate">{video.transcript.slice(0, 100)}…</p>
+                  {section.videos.map((video) => {
+                    const chars = video.transcript.length;
+                    const isEditing = editingVideo?.sectionOrder === section.order && editingVideo?.videoOrder === video.order;
+                    const charColor = chars < 300 ? "text-red-500" : chars < 800 ? "text-amber-500" : "text-green-600";
+                    const charLabel = chars < 300 ? "⚠ Very short" : chars < 800 ? "~ Short" : "✓ Good";
+                    return (
+                      <div key={video.order} className="px-4 py-3 space-y-2">
+                        <div className="flex items-start gap-3">
+                          <span className="text-gray-300 text-xs w-6 flex-shrink-0 pt-0.5">{video.order}.</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-700">📹 {video.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`text-xs font-bold ${charColor}`}>{charLabel} · {chars.toLocaleString()} chars</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setEditingVideo(isEditing ? null : { sectionOrder: section.order, videoOrder: video.order })}
+                            className={`text-xs font-bold px-2 py-1 rounded-lg flex-shrink-0 transition-colors ${isEditing ? "bg-gray-200 text-gray-600" : "bg-amber-100 text-amber-700 hover:bg-amber-200"}`}
+                          >
+                            {isEditing ? "▲ Close" : "✏️ Edit"}
+                          </button>
+                        </div>
+
+                        {isEditing ? (
+                          <div className="ml-9 space-y-2">
+                            <p className="text-xs text-gray-400 font-semibold">
+                              Edit transcript below — paste missing content, then close. Changes apply at import time.
+                            </p>
+                            <textarea
+                              value={video.transcript}
+                              onChange={(e) => updateVideoTranscript(section.order, video.order, e.target.value)}
+                              rows={10}
+                              className="w-full border-2 border-amber-200 focus:border-[#58CC02] focus:outline-none rounded-xl px-3 py-2 text-xs font-mono leading-relaxed resize-y"
+                              placeholder="Paste the full transcript here…"
+                            />
+                            <p className="text-xs text-gray-400 text-right">{video.transcript.length.toLocaleString()} chars</p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 ml-9 line-clamp-2">{video.transcript.slice(0, 200)}{chars > 200 ? "…" : ""}</p>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

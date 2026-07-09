@@ -35,12 +35,17 @@ function PdfSplitViewer({
   const [currentIdx, setCurrentIdx] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [mobileTab, setMobileTab] = useState<"pdf" | "summary">("pdf");
+  const [summaryView, setSummaryView] = useState<"page" | "all">("page");
 
   const pageSlides = lesson.slides.filter((s) => s.type === "pdf_page" || s.type === "transcript");
   const isTranscript = pageSlides.every((s) => s.type === "transcript");
   const current = pageSlides[currentIdx];
   const isLast = currentIdx === pageSlides.length - 1;
-  const summaryLines: string[] = current?.summary ?? [];
+  const pageSummaryLines: string[] = current?.summary ?? [];
+  // Collect all bullets from all slides for the "Full Lesson" view
+  const allBullets: Array<{ pageNum: number; bullet: string }> = pageSlides.flatMap((slide, idx) =>
+    (slide.summary ?? []).map((bullet) => ({ pageNum: idx + 1, bullet }))
+  );
   const pageLabel = current?.content.match(/Page (\d+)/)?.[1] ?? String(currentIdx + 1);
 
   async function complete() {
@@ -141,27 +146,62 @@ function PdfSplitViewer({
 
         {/* RIGHT — Summary */}
         <div className={`flex flex-col bg-[#f7f7f7] overflow-hidden md:w-1/2 ${mobileTab === "summary" ? "flex-1" : "hidden md:flex"}`}>
-          <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-            <span className="text-xs font-black text-gray-500 uppercase tracking-wide">📋 Page {pageLabel} — Summary</span>
+          {/* Header + toggle */}
+          <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between flex-shrink-0 gap-2">
+            <span className="text-xs font-black text-gray-500 uppercase tracking-wide">
+              {summaryView === "all" ? "📋 Full Lesson Summary" : `📋 Page ${pageLabel} Summary`}
+            </span>
+            <div className="flex rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+              <button
+                onClick={() => setSummaryView("page")}
+                className={`text-[10px] font-bold px-2 py-0.5 transition-colors ${summaryView === "page" ? "bg-[#58CC02] text-white" : "text-gray-500 hover:bg-gray-100"}`}
+              >
+                This Page
+              </button>
+              <button
+                onClick={() => setSummaryView("all")}
+                className={`text-[10px] font-bold px-2 py-0.5 transition-colors ${summaryView === "all" ? "bg-[#58CC02] text-white" : "text-gray-500 hover:bg-gray-100"}`}
+              >
+                All Pages
+              </button>
+            </div>
           </div>
-          <AnimatePresence mode="wait">
-            <motion.div key={currentIdx} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}
-              className="flex-1 overflow-y-auto px-4 py-4">
-              {summaryLines.length > 0 ? (
+
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            {summaryView === "all" ? (
+              allBullets.length > 0 ? (
                 <ul className="space-y-3">
-                  {summaryLines.map((bullet, i) => (
+                  {allBullets.map((item, i) => (
                     <li key={i} className="flex items-start gap-2.5">
                       <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#58CC02] text-white text-xs font-black flex items-center justify-center mt-0.5">{i + 1}</span>
-                      <p className="text-gray-700 font-medium text-sm leading-relaxed">{bullet}</p>
+                      <p className="text-gray-700 font-medium text-sm leading-relaxed">{item.bullet}</p>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-gray-400 text-sm italic">No summary for this page.</p>
-              )}
-            </motion.div>
-          </AnimatePresence>
+                <p className="text-gray-400 text-sm italic">No summaries generated yet.</p>
+              )
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div key={currentIdx} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
+                  {pageSummaryLines.length > 0 ? (
+                    <ul className="space-y-3">
+                      {pageSummaryLines.map((bullet, i) => (
+                        <li key={i} className="flex items-start gap-2.5">
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#58CC02] text-white text-xs font-black flex items-center justify-center mt-0.5">{i + 1}</span>
+                          <p className="text-gray-700 font-medium text-sm leading-relaxed">{bullet}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-gray-400 text-sm italic">No summary for this page.</p>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </div>
+
           {/* Nav also shown on mobile summary tab */}
           <div className="md:hidden">{navBar}</div>
         </div>

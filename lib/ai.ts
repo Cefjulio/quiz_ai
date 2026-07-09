@@ -205,6 +205,12 @@ function chunkTranscript(transcript: string, chunkSize = 1500): string[] {
     if (chunk.length > 0) chunks.push(chunk);
     start = end + 1;
   }
+  // Merge any tiny trailing chunk (< 250 chars) into the previous chunk
+  // to avoid slides with only 1-2 words like "when"
+  if (chunks.length > 1 && chunks[chunks.length - 1].length < 250) {
+    const tail = chunks.pop()!;
+    chunks[chunks.length - 1] = chunks[chunks.length - 1] + " " + tail;
+  }
   return chunks;
 }
 

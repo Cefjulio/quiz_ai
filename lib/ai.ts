@@ -185,48 +185,126 @@ Return ONLY valid JSON, no markdown, no code block:
 }
 
 export interface TranscriptLessonResult {
-  bullets: string[];
+  // slides: one per ~1500-char chunk of the transcript, each has its own bullets
+  slides: Array<{ content: string; bullets: string[] }>;
   flashcards: FlashcardData[];
+}
+
+// Split transcript into chunks of ~1500 chars, breaking at word boundaries
+function chunkTranscript(transcript: string, chunkSize = 1500): string[] {
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < transcript.length) {
+    let end = start + chunkSize;
+    if (end < transcript.length) {
+      // break at the last space within the chunk
+      const lastSpace = transcript.lastIndexOf(" ", end);
+      if (lastSpace > start) end = lastSpace;
+    }
+    const chunk = transcript.slice(start, end).trim();
+    if (chunk.length > 0) chunks.push(chunk);
+    start = end + 1;
+  }
+  return chunks;
+}
+
+async function generateBulletsForChunk(chunk: string, videoTitle: string, partLabel: string): Promise<string[]> {
+  const prompt = `You are an expert educator summarizing part of a video transcript titled "${videoTitle}" (${partLabel}).
+
+TRANSCRIPT EXCERPT:
+${chunk}
+
+Write bullet-point notes that cover EVERY concept, fact, tip, or insight mentioned in this excerpt — one bullet per distinct idea. Do not skip anything. Write complete, informative sentences.
+
+Return ONLY a JSON array of strings, no markdown, no code fences:
+["Bullet 1 covering concept A.", "Bullet 2 covering concept B.", ...]`;
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2048,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  const stripped = text.replace(/```(?:json)?\n?/g, "").trim();
+  const arrMatch = stripped.match(/\[[\s\S]*\]/);
+  if (!arrMatch) {
+    console.error("[ai] bullets chunk no JSON array. Raw:", text.slice(0, 300));
+    return [];
+  }
+  try {
+    return JSON.parse(arrMatch[0]) as string[];
+  } catch {
+    return [];
+  }
+}
+
+async function generateFlashcards(transcript: string, videoTitle: string): Promise<FlashcardData[]> {
+  // Use first 6000 chars for flashcard context (captures most of the lesson)
+  const context = transcript.slice(0, 6000);
+  const prompt = `You are an expert educator creating flashcards for a video titled "${videoTitle}".
+
+TRANSCRIPT:
+${context}
+
+Generate 8 flashcards covering the most important concepts, definitions, and facts from this transcript. Each flashcard has a FRONT (specific question or term) and BACK (concise answer, 1-2 sentences).
+
+Return ONLY a JSON array, no markdown, no code fences:
+[{"front":"Q?","back":"A."}]`;
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2048,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const text = message.content[0].type === "text" ? message.content[0].text : "";
+  const stripped = text.replace(/```(?:json)?\n?/g, "").trim();
+  const arrMatch = stripped.match(/\[[\s\S]*\]/);
+  if (!arrMatch) return [];
+  try {
+    return JSON.parse(arrMatch[0]) as FlashcardData[];
+  } catch {
+    return [];
+  }
 }
 
 export async function generateTranscriptLesson(
   transcript: string,
   videoTitle: string
 ): Promise<TranscriptLessonResult> {
-  const capped = transcript.slice(0, 3000);
+  // Clean URLs from transcript before processing
+  const clean = transcript.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim();
 
-  const prompt = `You are an expert educator. You have been given a video transcript titled "${videoTitle}".
-
-TRANSCRIPT:
-${capped}
-
-Your tasks:
-1. Write exactly 5 bullet-point summary notes. Each bullet must be a complete, informative sentence covering a key concept, tip, or insight.
-2. Generate exactly 5 flashcards covering the most important concepts. Each flashcard has a FRONT (short question or term) and BACK (concise answer, 1 sentence max).
-
-IMPORTANT: Return ONLY the raw JSON object below — no markdown, no code fences, no explanation before or after:
-{"bullets":["sentence 1","sentence 2","sentence 3","sentence 4","sentence 5"],"flashcards":[{"front":"Q1?","back":"A1."},{"front":"Q2?","back":"A2."},{"front":"Q3?","back":"A3."},{"front":"Q4?","back":"A4."},{"front":"Q5?","back":"A5."}]}`;
-
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1500,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const text = message.content[0].type === "text" ? message.content[0].text : "";
-
-  // Strip markdown code fences if present, then extract JSON
-  const stripped = text.replace(/```(?:json)?\n?/g, "").trim();
-  const jsonMatch = stripped.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    console.error("[ai] generateTranscriptLesson no JSON found. Raw:", text.slice(0, 400));
-    throw new Error("AI did not return valid JSON — transcript may have no educational content");
+  if (clean.length < 80) {
+    throw new Error(`Transcript too short (${clean.length} chars) — not enough educational content`);
   }
 
-  try {
-    return JSON.parse(jsonMatch[0]) as TranscriptLessonResult;
-  } catch (parseErr) {
-    console.error("[ai] JSON parse failed:", parseErr, "\nExtracted:", jsonMatch[0].slice(0, 400));
-    throw new Error("AI returned malformed JSON — the response was cut off. This video will be retried on the next import.");
+  const chunks = chunkTranscript(clean, 1500);
+  const totalChunks = chunks.length;
+
+  // Generate bullets for each chunk in parallel (up to 5 at a time)
+  const PARALLEL_LIMIT = 5;
+  const slides: Array<{ content: string; bullets: string[] }> = [];
+
+  for (let i = 0; i < chunks.length; i += PARALLEL_LIMIT) {
+    const batch = chunks.slice(i, i + PARALLEL_LIMIT);
+    const results = await Promise.all(
+      batch.map((chunk, j) =>
+        generateBulletsForChunk(chunk, videoTitle, `Part ${i + j + 1} of ${totalChunks}`)
+      )
+    );
+    for (let j = 0; j < batch.length; j++) {
+      slides.push({ content: batch[j], bullets: results[j] });
+    }
   }
+
+  // Generate flashcards from the full transcript concurrently with bullet generation
+  const flashcards = await generateFlashcards(clean, videoTitle);
+
+  if (slides.length === 0 || slides.every((s) => s.bullets.length === 0)) {
+    throw new Error("AI could not extract any educational content from this transcript");
+  }
+
+  return { slides, flashcards };
 }

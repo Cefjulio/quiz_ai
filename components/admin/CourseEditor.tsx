@@ -42,6 +42,8 @@ export default function CourseEditor({ course }: { course: Course }) {
   const [saving, setSaving] = useState(false);
   const [addingUnit, setAddingUnit] = useState(false);
   const [newUnitTitle, setNewUnitTitle] = useState("");
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenResults, setRegenResults] = useState<Array<{ lessonTitle: string; slideCount?: number; flashcardCount?: number; error?: string }> | null>(null);
 
   async function saveCourse() {
     setSaving(true);
@@ -53,6 +55,32 @@ export default function CourseEditor({ course }: { course: Course }) {
     setSaving(false);
     toast.success("Course saved!");
     router.refresh();
+  }
+
+  async function regenerateAllLessons() {
+    if (!confirm("This will re-generate ALL lesson summaries and flashcards in this course using the stored transcripts. Existing content will be replaced. Continue?")) return;
+    setRegenerating(true);
+    setRegenResults(null);
+    toast("Regenerating lessons… this may take a few minutes.", { icon: "⏳" });
+
+    const res = await fetch("/api/admin/regenerate-course", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courseId: course.id }),
+    });
+
+    if (res.ok) {
+      const { results } = await res.json();
+      setRegenResults(results);
+      const ok = results.filter((r: { error?: string }) => !r.error).length;
+      const fail = results.filter((r: { error?: string }) => r.error).length;
+      if (fail === 0) toast.success(`All ${ok} lessons regenerated!`);
+      else toast.error(`${ok} regenerated, ${fail} failed — see details below.`);
+      router.refresh();
+    } else {
+      toast.error("Regeneration failed — check the console");
+    }
+    setRegenerating(false);
   }
 
   async function addUnit() {
@@ -124,7 +152,37 @@ export default function CourseEditor({ course }: { course: Course }) {
           <button onClick={saveCourse} disabled={saving} className="duo-btn-green text-sm py-2 px-5">
             {saving ? "Saving…" : "Save Changes"}
           </button>
+          <button
+            onClick={regenerateAllLessons}
+            disabled={regenerating}
+            className="duo-btn-outline text-sm py-2 px-4 disabled:opacity-50"
+            title="Re-generate all lesson summaries and flashcards from stored transcripts"
+          >
+            {regenerating ? "⏳ Regenerating…" : "🔄 Regenerate All Lessons"}
+          </button>
         </div>
+
+        {regenResults && (
+          <div className="mt-4 border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-gray-50 px-4 py-2 text-xs font-black text-gray-500 uppercase tracking-wide">
+              Regeneration Results
+            </div>
+            <div className="divide-y divide-gray-100 max-h-60 overflow-y-auto">
+              {regenResults.map((r, i) => (
+                <div key={i} className="px-4 py-2 flex items-start gap-3 text-sm">
+                  <span className="flex-shrink-0 mt-0.5">{r.error ? "❌" : "✅"}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 truncate">{r.lessonTitle}</p>
+                    {r.error
+                      ? <p className="text-red-500 text-xs mt-0.5">{r.error}</p>
+                      : <p className="text-gray-400 text-xs mt-0.5">{r.slideCount} page{r.slideCount !== 1 ? "s" : ""} · {r.flashcardCount} flashcards</p>
+                    }
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Units */}

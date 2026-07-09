@@ -37,26 +37,18 @@ export async function POST(req: Request) {
 
     for (const video of videos) {
       try {
-        const cleanTranscript = video.transcript.replace(/https?:\/\/\S+/g, "").trim();
-        if (cleanTranscript.length < 80) {
-          results.push({
-            videoTitle: video.title,
-            error: `Transcript too short (${cleanTranscript.length} chars after removing URLs) — not enough educational content to generate a lesson`,
-          });
-          continue;
-        }
-        const { bullets, flashcards } = await generateTranscriptLesson(cleanTranscript, video.title);
+        const { slides: generatedSlides, flashcards } = await generateTranscriptLesson(video.transcript, video.title);
 
-        const slide = {
+        const dbSlides = generatedSlides.map((s) => ({
           type: "transcript",
-          content: cleanTranscript.slice(0, 3000),
+          content: s.content,
           fileUrl: null,
-          summary: bullets,
-        };
+          summary: s.bullets,
+        }));
 
         const { data: lesson, error: lessonErr } = await supabase
           .from("lessons")
-          .insert({ title: video.title, slides: [slide] })
+          .insert({ title: video.title, slides: dbSlides })
           .select()
           .single();
 
